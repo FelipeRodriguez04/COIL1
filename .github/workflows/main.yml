@@ -1,0 +1,49 @@
+name: Deploy Java App
+
+on:
+  push:
+    branches:
+      - main  # Cambia esto si tu rama principal tiene otro nombre
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'  # Ajusta la versión según tu proyecto
+
+      - name: Build with Maven
+        run: mvn clean package
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: java-app
+          path: target/*.jar
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: java-app
+          path: ./
+
+      - name: Deploy to server
+        env:
+          HOST: ${{ secrets.SSH_HOST }}
+          USER: ${{ secrets.SSH_USER }}
+          KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          DEST: /opt/myapp/  # Cambia esto según tu configuración
+        run: |
+          echo "$KEY" > private_key && chmod 600 private_key
+          scp -i private_key -o StrictHostKeyChecking=no *.jar $USER@$HOST:$DEST
+          ssh -i private_key -o StrictHostKeyChecking=no $USER@$HOST "sudo systemctl restart myapp"  # Ajusta esto según tu servidor
